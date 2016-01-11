@@ -1,5 +1,5 @@
-* Created on January 11, 2016 at 09:40:00 by the following -odkmeta- command:
-* odkmeta using "import2.do", csv(firstvisit_20151210_results_nonPII.csv) choices(choices.csv) survey(questionnaire.csv)
+* Created on December 29, 2015 at 12:21:16 by the following -odkmeta- command:
+* odkmeta using "import.do", s(questionnaire.csv) csv(firstvisit_20151210_results_nonPII.csv) choices(choices.csv)
 * -odkmeta- version 1.1.0 was used.
 
 version 9
@@ -1030,7 +1030,7 @@ char s01as01aasalespitch_complete_no_[Odk_required] yes
 * begin group s01.aaa.
 
 * interest_no
-char s01as01aas01aaainterest_no[Odk_name] interest_no
+char s01as01aas01aaainterest_no[Odk_name] interest_no_
 char s01as01aas01aaainterest_no[Odk_bad_name] 0
 char s01as01aas01aaainterest_no[Odk_group] s01.a. s01.aa. s01.aaa.
 char s01as01aas01aaainterest_no[Odk_long_name] s01.a.-s01.aa.-s01.aaa.-interest_no
@@ -1372,6 +1372,17 @@ foreach suffix in Latitude Longitude Altitude Accuracy {
 
 * Rename any variable names that are difficult for -split-.
 // rename ...
+foreach var of varlist _all {
+    if "`:char `var'[Odk_group]'" != "" {
+        local name = "`:char `var'[Odk_name]'" + ///
+            cond(`:char `var'[Odk_is_other]', "_other", "") + ///
+            "`:char `var'[Odk_geopoint]'"
+        local newvar = strtoname("`name'")
+        capture rename `var' `newvar'
+    }
+}
+
+
 
 * Split select_multiple variables.
 ds, has(char Odk_type)
@@ -1383,6 +1394,7 @@ foreach typevar in `r(varlist)' {
 		local list : char `var'[Odk_list_name]
 		local pos : list posof "`list'" in labs
 		local nparts : word `pos' of `nassoc'
+		di "`var' is a select_multiple variable."
 		if `:list list in otherlabs' & !`:char `var'[Odk_or_other]' ///
 			local --nparts
 		if inrange(substr("`var'", -1, 1), "0", "9") & ///
@@ -1392,6 +1404,7 @@ foreach typevar in `r(varlist)' {
 			local splitvars : subinstr local splitvars " " " `var'_", all
 			capture confirm new variable `var'_ `splitvars'
 			if !_rc {
+			    di "`var' is now `var'_"
 				rename `var' `var'_
 				local var `var'_
 			}
@@ -1510,7 +1523,7 @@ foreach var in `r(varlist)' {
 	if `:list list in lists' & !`:char `var'[Odk_is_other]' {
 		capture confirm numeric variable `var'
 		if !_rc {
-			tostring `var', replace format(%24.0g)
+			tostring `var', replace format(%24.2f) force
 			if !`:list list in sysmisslabs' ///
 				replace `var' = "" if `var' == "."
 		}
@@ -1518,9 +1531,9 @@ foreach var in `r(varlist)' {
 
 		* collateral_calc
 		if "`list'" == "collateral_calc" {
-			replace `temp' = "Gold"                    if `var' == "0.1"
+			replace `temp' = "Gold"                    if `var' == "0.10"
 			replace `temp' = "Property"                if `var' == "0.15"
-			replace `temp' = "Two personal guarantors" if `var' == "0.2"
+			replace `temp' = "Two personal guarantors" if `var' == "0.20"
 		}
 
 		replace `var' = `temp'
